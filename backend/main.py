@@ -35,7 +35,7 @@ def walk(data: Any, path: str, key: str, depth: int, max_depth: int) -> list[dic
     elif isinstance(data, list):
         for i, item in enumerate(data):
             child_path = f"{path}[{i}]"
-            nodes.extend(walk(item, child_path, f"[{i}]", depth + 1, max_depth))
+            nodes.extend(walk(item, child_path, child_path, depth + 1, max_depth))
 
     return nodes
 
@@ -64,7 +64,8 @@ def analyze(req: AnalyzeRequest):
             all_nodes.extend(walk(v, str(k), str(k), 1, req.max_depth))
     elif isinstance(data, list):
         for i, item in enumerate(data):
-            all_nodes.extend(walk(item, f"[{i}]", f"[{i}]", 1, req.max_depth))
+            child_path = f"[{i}]"
+            all_nodes.extend(walk(item, child_path, child_path, 1, req.max_depth))
     else:
         # scalar at root
         all_nodes = [{"path": "<root>", "key": "<root>", "depth": 1, "tokens": total_tokens}]

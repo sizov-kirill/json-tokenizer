@@ -1,17 +1,25 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --surface2: #22263a;
-  --border: #2e3250;
-  --text: #e2e8f0;
-  --muted: #6b7280;
-  --accent: #6366f1;
-  --accent-dim: rgba(99, 102, 241, 0.15);
-  --green: #22c55e;
-  --yellow: #eab308;
-  --red: #ef4444;
+  --bg: #080808;
+  --surface: #0f0f0f;
+  --surface2: #181818;
+  --border: #282828;
+  --text: #f0f0f0;
+  --muted: #4a4a4a;
+  --accent: #f0f0f0;
+  --accent-dim: rgba(240, 240, 240, 0.06);
+}
+
+[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface2: #f7f7f7;
+  --border: #e8e8e8;
+  --text: #080808;
+  --muted: #b0b0b0;
+  --accent: #080808;
+  --accent-dim: rgba(8, 8, 8, 0.04);
 }
 
 body {
@@ -21,6 +29,5 @@ body {
   font-size: 14px;
   line-height: 1.5;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
-
-a { color: var(--accent); }

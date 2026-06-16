@@ -1,10 +1,10 @@
 # JSON Token Analyzer
 
 # ── Docker (prod) ──────────────────────────────────────────
-# Build and start all services
-up:
-    docker compose up --build -d
-    @echo "→ http://localhost:3000"
+# Build and start all services (optional port, default 3000)
+up port="3000":
+    PORT={{port}} docker compose up --build -d
+    @echo "→ http://localhost:{{port}}"
 
 # Stop all services
 down:
