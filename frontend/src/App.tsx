@@ -10,6 +10,7 @@ interface KeyNode {
 interface AnalyzeResult {
   total_tokens: number;
   depths: Record<string, KeyNode[]>;
+  by_key: KeyNode[];
 }
 
 const API = import.meta.env.VITE_API_URL ?? "";
@@ -79,7 +80,7 @@ function DepthSection({ depth, nodes }: { depth: string; nodes: KeyNode[] }) {
                 alignItems: "center",
               }}
             >
-              <span style={{ fontFamily: "monospace", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {n.key}
               </span>
               <span style={{ display: "flex", alignItems: "center" }}>
@@ -88,7 +89,7 @@ function DepthSection({ depth, nodes }: { depth: string; nodes: KeyNode[] }) {
               <span style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 13 }}>
                 {n.tokens.toLocaleString()}
               </span>
-              <span style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted)", fontSize: 12 }}>
+              <span style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 13 }}>
                 {n.pct}%
               </span>
             </div>
@@ -134,12 +135,13 @@ export default function App() {
   }, [dark]);
 
   const [input, setInput] = useState(EXAMPLE);
-  const [maxDepth, setMaxDepth] = useState(4);
+  const [maxDepth, setMaxDepth] = useState(5);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"depth" | "key">("depth");
 
-  const analyze = useCallback(async () => {
+  const run = useCallback(async (depth: number) => {
     if (!input.trim()) return;
     setLoading(true);
     setError(null);
@@ -147,7 +149,7 @@ export default function App() {
       const res = await fetch(`${API}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ json_str: input, max_depth: maxDepth }),
+        body: JSON.stringify({ json_str: input, max_depth: depth }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? "Unknown error");
@@ -158,7 +160,15 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [input, maxDepth]);
+  }, [input]);
+
+  const analyze = useCallback(() => run(maxDepth), [run, maxDepth]);
+
+  const deeper = useCallback(() => {
+    const next = maxDepth + 1;
+    setMaxDepth(next);
+    run(next);
+  }, [run, maxDepth]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") analyze();
@@ -201,28 +211,8 @@ export default function App() {
 
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr" }}>
         <div style={{ borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", padding: "20px 28px", gap: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ color: "var(--muted)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase" }}>Depth</span>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={maxDepth}
-              onChange={e => setMaxDepth(Math.min(10, Math.max(1, Number(e.target.value))))}
-              style={{
-                width: 36,
-                background: "none",
-                border: "none",
-                borderBottom: "1px solid var(--border)",
-                color: "var(--text)",
-                fontSize: 13,
-                fontFamily: "inherit",
-                outline: "none",
-                padding: "1px 0",
-                textAlign: "center",
-              }}
-            />
-            <span style={{ marginLeft: "auto", color: "var(--muted)", fontSize: 10, letterSpacing: "0.08em" }}>⌘↵</span>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <span style={{ color: "var(--muted)", fontSize: 10, letterSpacing: "0.08em" }}>⌘↵</span>
           </div>
 
           <textarea
@@ -236,7 +226,7 @@ export default function App() {
               background: "var(--surface2)",
               border: "1px solid var(--border)",
               color: "var(--text)",
-              fontFamily: "monospace",
+              fontFamily: "'JetBrains Mono', monospace",
               fontSize: 12,
               lineHeight: 1.7,
               padding: 16,
@@ -251,7 +241,7 @@ export default function App() {
           {error && (
             <div style={{
               color: "var(--muted)",
-              fontFamily: "monospace",
+              fontFamily: "'JetBrains Mono', monospace",
               fontSize: 11,
               padding: "12px 0",
               borderTop: "1px solid var(--border)",
@@ -264,18 +254,112 @@ export default function App() {
 
           {result && (
             <>
-              <div style={{ padding: "20px 0 28px" }}>
-                <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
-                  {result.total_tokens.toLocaleString()}
+              <div style={{ padding: "20px 0 24px", display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                    {result.total_tokens.toLocaleString()}
+                  </div>
+                  <div style={{ color: "var(--muted)", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 8 }}>
+                    total tokens
+                  </div>
                 </div>
-                <div style={{ color: "var(--muted)", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 8 }}>
-                  total tokens
+
+                <div style={{ display: "flex", gap: 16, paddingBottom: 2 }}>
+                  {(["depth", "key"] as const).map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setMode(m)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: mode === m ? "var(--accent)" : "var(--muted)",
+                        cursor: "pointer",
+                        fontSize: 10,
+                        fontWeight: mode === m ? 700 : 400,
+                        letterSpacing: "0.15em",
+                        textTransform: "uppercase",
+                        padding: 0,
+                      }}
+                    >
+                      {m === "depth" ? "by depth" : "by key"}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {depths.map(d => (
-                <DepthSection key={d} depth={d} nodes={result.depths[d]} />
-              ))}
+              {mode === "depth" && (
+                <>
+                  {depths.map(d => (
+                    <DepthSection key={d} depth={d} nodes={result.depths[d]} />
+                  ))}
+                  <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20, marginTop: 4 }}>
+                    <button
+                      onClick={deeper}
+                      disabled={loading}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: loading ? "var(--muted)" : "var(--accent)",
+                        cursor: loading ? "wait" : "pointer",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: "0.18em",
+                        textTransform: "uppercase",
+                        padding: 0,
+                      }}
+                    >
+                      {loading ? "loading" : `deeper (${maxDepth} → ${maxDepth + 1})`}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {mode === "key" && (
+                <div>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "2fr 3fr 72px 52px",
+                    gap: 12,
+                    padding: "6px 0",
+                    color: "var(--muted)",
+                    fontSize: 9,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.12em",
+                    borderBottom: "1px solid var(--border)",
+                  }}>
+                    <span>key</span>
+                    <span></span>
+                    <span style={{ textAlign: "right" }}>tokens</span>
+                    <span style={{ textAlign: "right" }}>%</span>
+                  </div>
+                  {result.by_key.map(n => (
+                    <div
+                      key={n.key}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "2fr 3fr 72px 52px",
+                        gap: 12,
+                        padding: "9px 0",
+                        borderBottom: "1px solid var(--border)",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {n.key}
+                      </span>
+                      <span style={{ display: "flex", alignItems: "center" }}>
+                        <Bar pct={n.pct} />
+                      </span>
+                      <span style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 13 }}>
+                        {n.tokens.toLocaleString()}
+                      </span>
+                      <span style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 13 }}>
+                        {n.pct}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 

@@ -22,6 +22,16 @@ def count_tokens(obj: Any) -> int:
     return len(_encoding.encode(json.dumps(obj, ensure_ascii=False, separators=(",", ":"))))
 
 
+def collect_by_key(data: Any, acc: dict[str, int]) -> None:
+    if isinstance(data, dict):
+        for k, v in data.items():
+            acc[k] = acc.get(k, 0) + count_tokens(v)
+            collect_by_key(v, acc)
+    elif isinstance(data, list):
+        for item in data:
+            collect_by_key(item, acc)
+
+
 def walk(data: Any, path: str, key: str, depth: int, max_depth: int) -> list[dict]:
     nodes = [{"path": path, "key": key, "depth": depth, "tokens": count_tokens(data)}]
 
@@ -86,7 +96,18 @@ def analyze(req: AnalyzeRequest):
     for d in by_depth:
         by_depth[d].sort(key=lambda x: x["tokens"], reverse=True)
 
-    return {"total_tokens": total_tokens, "depths": by_depth}
+    key_acc: dict[str, int] = {}
+    collect_by_key(data, key_acc)
+    by_key = sorted(
+        [
+            {"key": k, "tokens": t, "pct": round(t / total_tokens * 100, 1) if total_tokens else 0}
+            for k, t in key_acc.items()
+        ],
+        key=lambda x: x["tokens"],
+        reverse=True,
+    )
+
+    return {"total_tokens": total_tokens, "depths": by_depth, "by_key": by_key}
 
 
 @app.get("/health")
