@@ -1,0 +1,188 @@
+{
+  "model": "gpt-4o",
+  "temperature": 0.3,
+  "max_tokens": 4096,
+  "system": "You are a senior software engineer assistant. You help users debug code, review pull requests, and design systems. When using tools, prefer targeted lookups over broad searches. Always explain your reasoning before taking action.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Can you investigate why our checkout flow is failing for users in the EU? I'm seeing a spike in errors starting around 2pm UTC today."
+    },
+    {
+      "role": "assistant",
+      "content": "I'll investigate the checkout errors for EU users. Let me start by checking recent error logs and then look at the relevant code.",
+      "tool_calls": [
+        {
+          "id": "call_abc123",
+          "type": "function",
+          "function": {
+            "name": "query_logs",
+            "arguments": "{\"query\": \"level:error service:checkout region:eu\", \"start\": \"2024-01-15T14:00:00Z\", \"end\": \"2024-01-15T16:00:00Z\", \"limit\": 50}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_abc123",
+      "content": "[{\"timestamp\":\"2024-01-15T14:03:22Z\",\"level\":\"error\",\"message\":\"VAT validation failed: invalid VIES response\",\"user_id\":\"u_8821\",\"country\":\"DE\"},{\"timestamp\":\"2024-01-15T14:04:01Z\",\"level\":\"error\",\"message\":\"VAT validation failed: connection timeout\",\"user_id\":\"u_9012\",\"country\":\"FR\"},{\"timestamp\":\"2024-01-15T14:04:45Z\",\"level\":\"error\",\"message\":\"VAT validation failed: invalid VIES response\",\"user_id\":\"u_7731\",\"country\":\"NL\"}]"
+    },
+    {
+      "role": "assistant",
+      "content": "The errors are all related to VIES (EU VAT validation service). Let me look at the VAT validation code.",
+      "tool_calls": [
+        {
+          "id": "call_def456",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"src/payments/vat_validator.py\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_def456",
+      "content": "def validate_vat(country_code: str, vat_number: str) -> bool:\n    response = requests.get(\n        f\"https://ec.europa.eu/taxation_customs/vies/services/checkVatService\",\n        params={\"countryCode\": country_code, \"vatNumber\": vat_number},\n        timeout=3\n    )\n    return response.json()[\"valid\"]"
+    },
+    {
+      "role": "assistant",
+      "content": "Found the issue. The VIES API appears to be degraded — the 3-second timeout is too tight and the service is returning malformed responses. I'll check the VIES status page and then propose a fix."
+    },
+    {
+      "role": "user",
+      "content": "Yes the VIES API has been flaky all afternoon. Can you write a fix that adds a fallback so checkout doesn't completely break when VIES is down?"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "query_logs",
+        "description": "Query application logs from the logging backend. Supports Lucene query syntax. Returns log entries sorted by timestamp descending.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Lucene query string, e.g. 'level:error service:checkout'"
+            },
+            "start": {
+              "type": "string",
+              "description": "ISO 8601 start timestamp"
+            },
+            "end": {
+              "type": "string",
+              "description": "ISO 8601 end timestamp"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Max number of results to return",
+              "default": 20
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read the contents of a file from the repository.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Relative path from repo root"
+            },
+            "start_line": {
+              "type": "integer",
+              "description": "First line to read (1-indexed, optional)"
+            },
+            "end_line": {
+              "type": "integer",
+              "description": "Last line to read (optional)"
+            }
+          },
+          "required": ["path"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "edit_file",
+        "description": "Apply a patch to a file in the repository. Creates the file if it does not exist.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Relative path from repo root"
+            },
+            "old_string": {
+              "type": "string",
+              "description": "Exact string to replace. Must match file contents exactly."
+            },
+            "new_string": {
+              "type": "string",
+              "description": "Replacement string"
+            }
+          },
+          "required": ["path", "old_string", "new_string"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "run_tests",
+        "description": "Run the test suite or a specific test file. Returns stdout/stderr and exit code.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Test file or directory to run. Omit to run full suite."
+            },
+            "flags": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Additional pytest flags, e.g. [\"-x\", \"-v\"]"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_code",
+        "description": "Search the codebase for a pattern using ripgrep. Returns file path, line number, and matching line.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Regex or literal search pattern"
+            },
+            "path": {
+              "type": "string",
+              "description": "Directory to search in (default: repo root)"
+            },
+            "file_glob": {
+              "type": "string",
+              "description": "Glob to filter files, e.g. '*.py'"
+            }
+          },
+          "required": ["pattern"]
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}
