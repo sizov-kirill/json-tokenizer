@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, DragEvent } from "react";
+import { useState, useRef, useCallback, useEffect, DragEvent } from "react";
 import type { SplitProps } from "./App";
 
 const API = import.meta.env.VITE_API_URL ?? "";
@@ -42,6 +42,19 @@ export function Video({ split, onDividerMouseDown }: SplitProps) {
   const [outputMime, setOutputMime] = useState<OutputFormat>("video");
   const [outputSize, setOutputSize] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handler = (e: globalThis.KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "o") {
+        e.preventDefault();
+        inputRef.current?.click();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const accept = (f: File) => {
     if (!f.type.startsWith("video/")) { setError("not a video file"); return; }
@@ -117,7 +130,7 @@ export function Video({ split, onDividerMouseDown }: SplitProps) {
         >
           {file
             ? <><div style={{ color: "var(--text)", marginBottom: 6, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{file.name}</div><div>{fmt(file.size)}</div></>
-            : <div>drop video or click to select</div>
+            : <div>drop video or click to select <span style={{ opacity: 0.4 }}>o</span></div>
           }
           <input ref={inputRef} type="file" accept="video/*" onChange={e => e.target.files?.[0] && accept(e.target.files[0])} style={{ display: "none" }} />
         </div>

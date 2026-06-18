@@ -1,4 +1,4 @@
-import { useState, useCallback, KeyboardEvent } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Highlight } from "./Highlight";
 import type { SplitProps } from "./App";
 
@@ -128,9 +128,13 @@ export function Tokenizer({ searchQuery, split, onDividerMouseDown }: { searchQu
     run(next);
   }, [run, maxDepth]);
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") analyze();
-  };
+  useEffect(() => {
+    const handler = (e: globalThis.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") analyze();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [analyze]);
 
   const depths = result ? Object.keys(result.depths).sort((a, b) => Number(a) - Number(b)) : [];
 
@@ -143,7 +147,6 @@ export function Tokenizer({ searchQuery, split, onDividerMouseDown }: { searchQu
         <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
           placeholder="Paste JSON here"
           spellCheck={false}
           style={{ flex: 1, background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7, padding: 16, resize: "none", outline: "none", minHeight: 400 }}
