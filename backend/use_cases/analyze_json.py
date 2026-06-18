@@ -1,0 +1,84 @@
+import json
+from typing import Any
+
+import tiktoken
+
+_encoding = tiktoken.get_encoding("cl100k_base")
+
+
+def count_tokens(obj: Any) -> int:
+    return len(_encoding.encode(json.dumps(obj, ensure_ascii=False, separators=(",", ":"))))
+
+
+def collect_by_key(data: Any, acc: dict[str, int]) -> None:
+    if isinstance(data, dict):
+        for k, v in data.items():
+            acc[k] = acc.get(k, 0) + count_tokens(v)
+            collect_by_key(v, acc)
+    elif isinstance(data, list):
+        for item in data:
+            collect_by_key(item, acc)
+
+
+def walk(data: Any, path: str, key: str, depth: int, max_depth: int) -> list[dict]:
+    nodes = [{"path": path, "key": key, "depth": depth, "tokens": count_tokens(data)}]
+
+    if depth >= max_depth:
+        return nodes
+
+    if isinstance(data, dict):
+        for k, v in data.items():
+            child_path = f"{path}.{k}" if path else str(k)
+            nodes.extend(walk(v, child_path, str(k), depth + 1, max_depth))
+    elif isinstance(data, list):
+        for i, item in enumerate(data):
+            child_path = f"{path}[{i}]"
+            nodes.extend(walk(item, child_path, child_path, depth + 1, max_depth))
+
+    return nodes
+
+
+def group_by_depth(nodes: list[dict], total_tokens: int) -> dict[int, list]:
+    by_depth: dict[int, list] = {}
+    for node in nodes:
+        d = node["depth"]
+        by_depth.setdefault(d, []).append({
+            "key": node["key"],
+            "path": node["path"],
+            "tokens": node["tokens"],
+            "pct": round(node["tokens"] / total_tokens * 100, 1) if total_tokens else 0,
+        })
+    for d in by_depth:
+        by_depth[d].sort(key=lambda x: x["tokens"], reverse=True)
+    return by_depth
+
+
+def aggregate_by_key(data: Any, total_tokens: int) -> list[dict]:
+    acc: dict[str, int] = {}
+    collect_by_key(data, acc)
+    return sorted(
+        [{"key": k, "tokens": t, "pct": round(t / total_tokens * 100, 1) if total_tokens else 0} for k, t in acc.items()],
+        key=lambda x: x["tokens"],
+        reverse=True,
+    )
+
+
+def analyze_json(data: Any, max_depth: int) -> dict:
+    total_tokens = count_tokens(data)
+
+    all_nodes: list[dict] = []
+    if isinstance(data, dict):
+        for k, v in data.items():
+            all_nodes.extend(walk(v, str(k), str(k), 1, max_depth))
+    elif isinstance(data, list):
+        for i, item in enumerate(data):
+            child_path = f"[{i}]"
+            all_nodes.extend(walk(item, child_path, child_path, 1, max_depth))
+    else:
+        all_nodes = [{"path": "<root>", "key": "<root>", "depth": 1, "tokens": total_tokens}]
+
+    return {
+        "total_tokens": total_tokens,
+        "depths": group_by_depth(all_nodes, total_tokens),
+        "by_key": aggregate_by_key(data, total_tokens),
+    }

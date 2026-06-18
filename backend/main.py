@@ -1,12 +1,15 @@
 import json
-from typing import Any
+import os
 
-import tiktoken
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import Response
 
-app = FastAPI(title="JSON Token Analyzer")
+from models import AnalyzeRequest
+from use_cases.analyze_json import analyze_json
+from use_cases.convert_video import convert_video
+
+app = FastAPI(title="zootoolz")
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,99 +18,53 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_encoding = tiktoken.get_encoding("cl100k_base")
-
-
-def count_tokens(obj: Any) -> int:
-    return len(_encoding.encode(json.dumps(obj, ensure_ascii=False, separators=(",", ":"))))
-
-
-def collect_by_key(data: Any, acc: dict[str, int]) -> None:
-    if isinstance(data, dict):
-        for k, v in data.items():
-            acc[k] = acc.get(k, 0) + count_tokens(v)
-            collect_by_key(v, acc)
-    elif isinstance(data, list):
-        for item in data:
-            collect_by_key(item, acc)
-
-
-def walk(data: Any, path: str, key: str, depth: int, max_depth: int) -> list[dict]:
-    nodes = [{"path": path, "key": key, "depth": depth, "tokens": count_tokens(data)}]
-
-    if depth >= max_depth:
-        return nodes
-
-    if isinstance(data, dict):
-        for k, v in data.items():
-            child_path = f"{path}.{k}" if path else str(k)
-            nodes.extend(walk(v, child_path, str(k), depth + 1, max_depth))
-    elif isinstance(data, list):
-        for i, item in enumerate(data):
-            child_path = f"{path}[{i}]"
-            nodes.extend(walk(item, child_path, child_path, depth + 1, max_depth))
-
-    return nodes
-
-
-class AnalyzeRequest(BaseModel):
-    json_str: str
-    max_depth: int = 5
-
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):
+    if not 1 <= req.max_depth <= 10:
+        raise HTTPException(400, "max_depth must be between 1 and 10")
     try:
         data = json.loads(req.json_str)
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+        raise HTTPException(400, f"Invalid JSON: {e}")
+    return analyze_json(data, req.max_depth)
 
-    if req.max_depth < 1 or req.max_depth > 10:
-        raise HTTPException(status_code=400, detail="max_depth must be between 1 and 10")
 
-    total_tokens = count_tokens(data)
+@app.post("/convert")
+async def convert(
+    file: UploadFile = File(...),
+    output_format: str = Form("video"),
+    start: float = Form(0.0),
+    end: float = Form(0.0),
+    speed: float = Form(1.0),
+    fps: int = Form(0),
+    width: int = Form(0),
+):
+    if output_format not in ("video", "gif"):
+        raise HTTPException(400, "output_format must be 'video' or 'gif'")
+    if not 0.25 <= speed <= 16:
+        raise HTTPException(400, "speed must be between 0.25 and 16")
+    if fps != 0 and not 1 <= fps <= 60:
+        raise HTTPException(400, "fps must be between 1 and 60")
+    if width != 0 and not 100 <= width <= 1920:
+        raise HTTPException(400, "width must be between 100 and 1920")
+    if end > 0 and end <= start:
+        raise HTTPException(400, "end must be greater than start")
 
-    # collect nodes starting at depth 1
-    all_nodes: list[dict] = []
-    if isinstance(data, dict):
-        for k, v in data.items():
-            all_nodes.extend(walk(v, str(k), str(k), 1, req.max_depth))
-    elif isinstance(data, list):
-        for i, item in enumerate(data):
-            child_path = f"[{i}]"
-            all_nodes.extend(walk(item, child_path, child_path, 1, req.max_depth))
-    else:
-        # scalar at root
-        all_nodes = [{"path": "<root>", "key": "<root>", "depth": 1, "tokens": total_tokens}]
+    content = await file.read()
+    if len(content) > 500 * 1024 * 1024:
+        raise HTTPException(400, "file too large (max 500MB)")
 
-    # group by depth, sort each group by tokens desc
-    by_depth: dict[int, list] = {}
-    for node in all_nodes:
-        d = node["depth"]
-        by_depth.setdefault(d, []).append(
-            {
-                "key": node["key"],
-                "path": node["path"],
-                "tokens": node["tokens"],
-                "pct": round(node["tokens"] / total_tokens * 100, 1) if total_tokens else 0,
-            }
-        )
+    ext = os.path.splitext(file.filename or "")[1] or ".mp4"
 
-    for d in by_depth:
-        by_depth[d].sort(key=lambda x: x["tokens"], reverse=True)
+    try:
+        data = convert_video(content, ext, output_format, start, end, speed, fps, width)
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
 
-    key_acc: dict[str, int] = {}
-    collect_by_key(data, key_acc)
-    by_key = sorted(
-        [
-            {"key": k, "tokens": t, "pct": round(t / total_tokens * 100, 1) if total_tokens else 0}
-            for k, t in key_acc.items()
-        ],
-        key=lambda x: x["tokens"],
-        reverse=True,
-    )
-
-    return {"total_tokens": total_tokens, "depths": by_depth, "by_key": by_key}
+    media_type = "image/gif" if output_format == "gif" else "video/mp4"
+    filename = "output.gif" if output_format == "gif" else "output.mp4"
+    return Response(content=data, media_type=media_type, headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
 @app.get("/health")

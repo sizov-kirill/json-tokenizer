@@ -22,6 +22,13 @@
   --accent-dim: rgba(8, 8, 8, 0.04);
 }
 
+mark {
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
