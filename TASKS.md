@@ -1,3 +1,4 @@
 - [ ] Add new tool: base64 encoder / decoder
 - [ ] Add new keyboard shortcut: switching between dark and light mode
 - [ ] Add new tool: markdown editor. One screen. By default opened in edit mode. Separate shorcut for switching to preview mode. State of editing storing in backend (currently it could be file in container os)
+- [ ] Actualize README.md. Currently it only tells about json encoder. Need to just list all tools, one tool = one line of readme = one sentence of description
