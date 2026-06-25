@@ -3,15 +3,20 @@ import { Tokenizer } from "./Tokenizer";
 import { Prettifier } from "./Prettifier";
 import { JwtDecoder } from "./JwtDecoder";
 import { Video } from "./VideoToGif";
+import { Base64 } from "./Base64";
+import { Markdown } from "./Markdown";
 
 const SHORTCUTS = [
-  { group: "tools",   keys: "1 / 2 / 3 / 4",  desc: "switch tool" },
-  { group: "panels",  keys: "[ / ]",            desc: "resize panels" },
-  { group: "search",  keys: "⌘F",               desc: "focus search" },
-  { group: "search",  keys: "Escape",            desc: "clear search" },
-  { group: "tokens",  keys: "⌘↵",               desc: "analyze JSON" },
-  { group: "video",   keys: "o",                 desc: "open file picker" },
-  { group: "general", keys: "?",                 desc: "toggle help" },
+  { keys: "⌥1 – ⌥6",               desc: "switch tool (works anywhere)" },
+  { keys: "1 – 6",                  desc: "switch tool (when not in input)" },
+  { keys: "[ / ]",                  desc: "resize panels" },
+  { keys: "d",                      desc: "toggle dark / light" },
+  { keys: "⌘F",                     desc: "focus search" },
+  { keys: "Escape",                 desc: "clear search" },
+  { keys: "⌘↵",                     desc: "analyze JSON (tokens tool)" },
+  { keys: "o",                      desc: "open file picker (video tool)" },
+  { keys: "⌥P",                     desc: "toggle preview (markdown tool)" },
+  { keys: "?",                      desc: "toggle help" },
 ];
 
 function Help({ onClose }: { onClose: () => void }) {
@@ -27,8 +32,8 @@ function Help({ onClose }: { onClose: () => void }) {
         <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 24, color: "var(--muted)" }}>shortcuts</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           {SHORTCUTS.map((s, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 16, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--accent)" }}>{s.keys}</span>
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 16, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--accent)" }}>{s.keys}</span>
               <span style={{ fontSize: 12, color: "var(--muted)" }}>{s.desc}</span>
             </div>
           ))}
@@ -46,9 +51,11 @@ const TOOLS = [
   { id: "prettifier", label: "Prettifier", key: "2" },
   { id: "jwt", label: "JWT", key: "3" },
   { id: "video", label: "Video", key: "4" },
+  { id: "base64", label: "Base64", key: "5" },
+  { id: "markdown", label: "Markdown", key: "6" },
 ] as const;
 
-type ToolId = "tokenizer" | "prettifier" | "jwt" | "video";
+type ToolId = "tokenizer" | "prettifier" | "jwt" | "video" | "base64" | "markdown";
 
 export interface SplitProps {
   split: number;
@@ -93,8 +100,14 @@ export default function App() {
 
       if (!inInput && e.key === "?") { setShowHelp(v => !v); return; }
       if (e.key === "Escape" && showHelp) { setShowHelp(false); return; }
-      if (!inInput && !e.metaKey && !e.ctrlKey && !e.altKey && ["1", "2", "3", "4"].includes(e.key)) {
+      if (!inInput && e.key === "d") { setDark(v => !v); return; }
+      if (!inInput && !e.metaKey && !e.ctrlKey && !e.altKey && ["1", "2", "3", "4", "5", "6"].includes(e.key)) {
         setActiveTool(TOOLS[parseInt(e.key) - 1].id);
+        setSearchQuery("");
+      }
+      if (e.altKey && !e.metaKey && !e.ctrlKey && ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6"].includes(e.code)) {
+        e.preventDefault();
+        setActiveTool(TOOLS[parseInt(e.code.replace("Digit", "")) - 1].id);
         setSearchQuery("");
       }
       if (!inInput && e.key === "[") setSplit(s => Math.max(20, s - 5));
@@ -141,7 +154,7 @@ export default function App() {
               }}
             >
               {t.label}
-              <span style={{ opacity: 0.4, fontSize: 9 }}>{t.key}</span>
+              <span style={{ opacity: 0.4, fontSize: 9 }}>⌥{t.key}</span>
             </button>
           ))}
         </nav>
@@ -183,6 +196,8 @@ export default function App() {
       {activeTool === "prettifier" && <Prettifier searchQuery={searchQuery} {...splitProps} />}
       {activeTool === "jwt" && <JwtDecoder searchQuery={searchQuery} {...splitProps} />}
       {activeTool === "video" && <Video {...splitProps} />}
+      {activeTool === "base64" && <Base64 {...splitProps} />}
+      {activeTool === "markdown" && <Markdown />}
     </div>
   );
 }

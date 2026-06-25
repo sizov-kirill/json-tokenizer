@@ -4,7 +4,7 @@ import type { SplitProps } from "./App";
 
 interface KeyNode {
   key: string;
-  path: string;
+  path?: string;
   tokens: number;
   pct: number;
 }

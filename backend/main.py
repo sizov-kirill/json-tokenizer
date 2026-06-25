@@ -5,9 +5,10 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from models import AnalyzeRequest
+from models import AnalyzeRequest, MarkdownContent
 from use_cases.analyze_json import analyze_json
 from use_cases.convert_video import convert_video
+from use_cases.markdown import load as load_markdown, save as save_markdown
 
 app = FastAPI(title="zootoolz")
 
@@ -65,6 +66,17 @@ async def convert(
     media_type = "image/gif" if output_format == "gif" else "video/mp4"
     filename = "output.gif" if output_format == "gif" else "output.mp4"
     return Response(content=data, media_type=media_type, headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+@app.get("/markdown")
+def get_markdown():
+    return {"content": load_markdown()}
+
+
+@app.put("/markdown")
+def put_markdown(body: MarkdownContent):
+    save_markdown(body.content)
+    return {"ok": True}
 
 
 @app.get("/health")

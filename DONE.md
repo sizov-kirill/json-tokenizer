@@ -1,0 +1,5 @@
+- [x] Add new tool: base64 encoder / decoder
+- [x] Add new keyboard shortcut: switching between dark and light mode (`d`)
+- [x] Add new tool: markdown editor. One screen. By default opened in edit mode. Separate shortcut for switching to preview mode (`p`). State stored in backend as file in container.
+- [x] Actualize README.md. Lists all tools, one tool = one line = one sentence.
+- [x] Make JSON Prettifier more convenient: foldable tree in right panel, textarea auto-focuses on tool switch so paste works immediately without clicking.

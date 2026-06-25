@@ -44,6 +44,10 @@ export function Video({ split, onDividerMouseDown }: SplitProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    return () => { if (outputUrl) URL.revokeObjectURL(outputUrl); };
+  }, [outputUrl]);
+
+  useEffect(() => {
     const handler = (e: globalThis.KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "TEXTAREA" || tag === "INPUT") return;
@@ -58,7 +62,6 @@ export function Video({ split, onDividerMouseDown }: SplitProps) {
 
   const accept = (f: File) => {
     if (!f.type.startsWith("video/")) { setError("not a video file"); return; }
-    if (outputUrl) URL.revokeObjectURL(outputUrl);
     setFile(f);
     setOutputUrl(null);
     setError(null);
@@ -91,7 +94,6 @@ export function Video({ split, onDividerMouseDown }: SplitProps) {
         throw new Error(data.detail);
       }
       const blob = await res.blob();
-      if (outputUrl) URL.revokeObjectURL(outputUrl);
       setOutputUrl(URL.createObjectURL(blob));
       setOutputMime(outputFormat);
       setOutputSize(blob.size);
@@ -100,7 +102,7 @@ export function Video({ split, onDividerMouseDown }: SplitProps) {
     } finally {
       setLoading(false);
     }
-  }, [file, outputFormat, start, end, speed, fps, width, outputUrl]);
+  }, [file, outputFormat, start, end, speed, fps, width]);
 
   const fmt = (bytes: number) => bytes > 1024 * 1024
     ? `${(bytes / 1024 / 1024).toFixed(1)} MB`

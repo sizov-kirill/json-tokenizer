@@ -1,18 +1,16 @@
-# JSON Token Analyzer
+# zootoolz
 
-Visualizes token distribution inside a JSON payload using cl100k_base (GPT-4 / Claude compatible).
+A collection of developer tools. Run with `just up 1234`.
 
-## Run
+## Tools
 
-```
-just up 1234
-```
+- **JSON Tokens** — counts token distribution in a JSON payload by depth and key (cl100k_base)
+- **Prettifier** — formats JSON with a foldable interactive tree
+- **JWT** — decodes JWT header, payload, and signature with expiry info
+- **Video** — trims, speeds up, and converts video files to GIF or MP4
+- **Base64** — encodes and decodes base64 strings
+- **Markdown** — markdown editor with live preview, state persisted in backend
 
-## Usage
+## Shortcuts
 
-Paste JSON into and press `Cmd+Enter`
-
-Results show token counts and percentages in two modes:
-
-- **by depth** — breakdown per nesting level
-- **by key** — aggregated across the whole document, lists ignored, same key names merged
+Press `?` in the app to see all keyboard shortcuts.
