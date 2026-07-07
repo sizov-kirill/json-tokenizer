@@ -10,6 +10,10 @@ def count_tokens(obj: Any) -> int:
     return len(_encoding.encode(json.dumps(obj, ensure_ascii=False, separators=(",", ":"))))
 
 
+def count_text_tokens(text: str) -> int:
+    return len(_encoding.encode(text))
+
+
 def collect_by_key(data: Any, acc: dict[str, int]) -> None:
     if isinstance(data, dict):
         for k, v in data.items():

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from models import AnalyzeRequest, MarkdownContent
-from use_cases.analyze_json import analyze_json
+from use_cases.analyze_json import analyze_json, count_text_tokens
 from use_cases.convert_video import convert_video
 from use_cases.markdown import load as load_markdown, save as save_markdown
 
@@ -26,9 +26,10 @@ def analyze(req: AnalyzeRequest):
         raise HTTPException(400, "max_depth must be between 1 and 10")
     try:
         data = json.loads(req.json_str)
-    except json.JSONDecodeError as e:
-        raise HTTPException(400, f"Invalid JSON: {e}")
-    return analyze_json(data, req.max_depth)
+    except json.JSONDecodeError:
+        # Not valid JSON — just report the raw token count.
+        return {"total_tokens": count_text_tokens(req.json_str), "is_json": False, "depths": {}, "by_key": []}
+    return {**analyze_json(data, req.max_depth), "is_json": True}
 
 
 @app.post("/convert")

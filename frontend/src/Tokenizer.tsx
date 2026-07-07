@@ -11,6 +11,7 @@ interface KeyNode {
 
 interface AnalyzeResult {
   total_tokens: number;
+  is_json: boolean;
   depths: Record<string, KeyNode[]>;
   by_key: KeyNode[];
 }
@@ -169,18 +170,28 @@ export function Tokenizer({ searchQuery, split, onDividerMouseDown }: { searchQu
                 <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
                   {result.total_tokens.toLocaleString()}
                 </div>
-                <div style={{ color: "var(--muted)", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 8 }}>total tokens</div>
+                <div style={{ color: "var(--muted)", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 8 }}>
+                  {result.is_json ? "total tokens" : "total tokens · plain text"}
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 16, paddingBottom: 2 }}>
-                {(["depth", "key"] as const).map(m => (
-                  <button key={m} onClick={() => setMode(m)} style={{ background: "none", border: "none", color: mode === m ? "var(--accent)" : "var(--muted)", cursor: "pointer", fontSize: 10, fontWeight: mode === m ? 700 : 400, letterSpacing: "0.15em", textTransform: "uppercase", padding: 0 }}>
-                    {m === "depth" ? "by depth" : "by key"}
-                  </button>
-                ))}
-              </div>
+              {result.is_json && (
+                <div style={{ display: "flex", gap: 16, paddingBottom: 2 }}>
+                  {(["depth", "key"] as const).map(m => (
+                    <button key={m} onClick={() => setMode(m)} style={{ background: "none", border: "none", color: mode === m ? "var(--accent)" : "var(--muted)", cursor: "pointer", fontSize: 10, fontWeight: mode === m ? 700 : 400, letterSpacing: "0.15em", textTransform: "uppercase", padding: 0 }}>
+                      {m === "depth" ? "by depth" : "by key"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {mode === "depth" && (
+            {!result.is_json && (
+              <div style={{ color: "var(--muted)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "12px 0", borderTop: "1px solid var(--border)" }}>
+                Input isn’t valid JSON — showing the raw token count only.
+              </div>
+            )}
+
+            {result.is_json && mode === "depth" && (
               <>
                 {depths.map(d => <DepthSection key={d} depth={d} nodes={result.depths[d]} searchQuery={searchQuery} />)}
                 <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20, marginTop: 4 }}>
@@ -191,7 +202,7 @@ export function Tokenizer({ searchQuery, split, onDividerMouseDown }: { searchQu
               </>
             )}
 
-            {mode === "key" && (
+            {result.is_json && mode === "key" && (
               <div>
                 <TableHeader />
                 {result.by_key.map(n => <Row key={n.key} n={n} searchQuery={searchQuery} />)}

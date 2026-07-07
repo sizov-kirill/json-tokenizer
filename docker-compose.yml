@@ -1,21 +1,12 @@
 services:
-  backend:
-    build: ./backend
+  app:
+    build: .
     ports:
-      - "8000:8000"
+      - "${PORT:-3000}:80"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 30s
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "${PORT:-3000}:80"
-    depends_on:
-      backend:
-        condition: service_healthy
-    restart: unless-stopped
+      start_period: 40s
